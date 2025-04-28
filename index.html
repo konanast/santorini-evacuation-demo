@@ -88,6 +88,15 @@
     #modeButtons button.animate-pulse {
       animation: pulse 0.6s;
     }
+    .danger-label {
+      background: rgba(255, 0, 0, 0.7);
+      color: white;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+      border: 1px solid white;
+    }
   </style>
 </head>
 <body>
@@ -96,8 +105,8 @@
   <div id="status">Finding route to nearest safe point...</div>
   <select id="shelterSelect"></select>
   <div id="modeButtons" style="margin-top: 10px; display: flex; gap: 8px;">
-    <button id="footBtn" style="flex:1;">🚶‍♂️ Foot</button>
     <button id="carBtn" style="flex:1;">🚗 Car</button>
+    <button id="footBtn" style="flex:1;">🚶‍♂️ Foot</button>
   </div>
   <button id="selectLocationBtn" style="margin-top: 10px; width: 100%;">Select Location on Map</button>
 </div>
@@ -253,6 +262,20 @@ const avoidanceFeature = {
 const map = L.map('map').setView(fallback_point, 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
 
+const shelterIcon = L.icon({
+  iconUrl: 'https://img.icons8.com/?size=100&id=ptfpVsU72H51&format=png&color=000000',
+  iconSize: [32, 32],
+  iconAnchor: [16, 32],
+  popupAnchor: [0, -32]
+});
+
+const userLocationIcon = L.icon({
+  iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
+  iconSize: [30, 30],
+  iconAnchor: [15, 30],
+  popupAnchor: [0, -30]
+});
+
 // Draw Danger Zones
 function drawDangerZones() {
   L.geoJSON(avoidanceFeature, {
@@ -261,24 +284,32 @@ function drawDangerZones() {
       weight: 2,
       fillColor: 'red',
       fillOpacity: 0.3
+    },
+    onEachFeature: function (feature, layer) {
+      layer.bindTooltip("Danger Zone", {
+        permanent: true,
+        direction: 'center',
+        className: 'danger-label'
+      });
     }
   }).addTo(map);
 }
 
 // Draw Safe Points
 safePoints.forEach(point => {
-  L.marker([point.coords[1], point.coords[0]])
+  L.marker([point.coords[1], point.coords[0]], { icon: shelterIcon })
     .addTo(map)
     .bindPopup(point.name);
 });
 
 // Draw Avoidance Zone
-L.geoJSON(avoidanceFeature, { style: { color: 'red', weight: 2, fillOpacity: 0.3 } }).addTo(map);
+drawDangerZones();
+
 
 let userCoords = null;
 let routeLayer = null;
 let currentShelter = null;
-let currentMode = 'foot-walking'; // default
+let currentMode = 'driving-car'; // default
 let selectingLocation = false;
 let userMarker = null;
 
@@ -402,6 +433,7 @@ function setupModeButtons() {
     updateRoute();
     highlightSelectedButton('car');
   });
+  highlightSelectedButton('car');
 }
 
 // Highlight selected button
@@ -439,7 +471,7 @@ function startRouting() {
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(position => {
       userCoords = [position.coords.latitude, position.coords.longitude];
-      L.marker(userCoords).addTo(map).bindPopup('You are here').openPopup();
+      userMarker = L.marker(userCoords, { icon: userLocationIcon }).addTo(map).bindPopup('You are here').openPopup();
       map.setView(userCoords, 14);
 
       const nearestShelter = findNearestSafePoint(userCoords);
@@ -459,7 +491,7 @@ function startRouting() {
 
 function fallback() {
   userCoords = fallback_point;
-  userMarker = L.marker(userCoords).addTo(map).bindPopup('You are here (fixed)').openPopup();
+  userMarker = L.marker(userCoords, { icon: userLocationIcon }).addTo(map).bindPopup('You are here (fixed)').openPopup();
   map.setView(userCoords, 14);
 
   const nearestShelter = findNearestSafePoint(userCoords);
@@ -487,7 +519,7 @@ map.on('click', function(e) {
   }
 
   // Add new user marker
-  userMarker = L.marker(userCoords).addTo(map).bindPopup('Selected Location').openPopup();
+  userMarker = L.marker(userCoords, { icon: userLocationIcon }).addTo(map).bindPopup('Selected Location').openPopup();
 
   // Remove previous route
   if (routeLayer) {
