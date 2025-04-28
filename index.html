@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Santorini Evacuation Route Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f2f5;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    #info {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: white;
+      padding: 16px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      z-index: 999;
+      width: 240px;
+    }
+
+    #status {
+      margin-bottom: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    select {
+      width: 100%;
+      padding: 8px 12px;
+      margin-top: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      background: #fafafa;
+      font-size: 14px;
+      transition: border 0.3s, background 0.3s;
+    }
+
+    select:hover {
+      border-color: #888;
+      background: #f5f5f5;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: #007bff;
+      background: #fff;
+    }
+    #modeButtons button {
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      background: #f8f9fa;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    #modeButtons button:hover {
+      background: #e2e6ea;
+    }
+    /* Light Pulse Animation */
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.5);
+      }
+      70% {
+        box-shadow: 0 0 0 8px rgba(0, 123, 255, 0);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(0, 123, 255, 0);
+      }
+    }
+
+    #modeButtons button.animate-pulse {
+      animation: pulse 0.6s;
+    }
+  </style>
+</head>
+<body>
+
+<div id="info">
+  <div id="status">Finding route to nearest safe point...</div>
+  <select id="shelterSelect"></select>
+  <div id="modeButtons" style="margin-top: 10px; display: flex; gap: 8px;">
+    <button id="footBtn" style="flex:1;">🚶‍♂️ Foot</button>
+    <button id="carBtn" style="flex:1;">🚗 Car</button>
+  </div>
+  <button id="selectLocationBtn" style="margin-top: 10px; width: 100%;">Select Location on Map</button>
+</div>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+// Insert your OpenRouteService API key here
+const ors_api_key = '5b3ce3597851110001cf62486f7eb4c000634e94b29edb797b397e0e';
+const fallback_point = [36.362831, 25.421362]
+
+// Example Safe Points
+const safePoints = [
+  { name: "Shelter 1", coords: [25.431454, 36.386973] },
+  { name: "Shelter 2", coords: [25.472624, 36.402719] },
+  { name: "Shelter 3", coords: [25.343610, 36.458202] }
+];
+
+// Example Avoidance Polygon
+const avoidanceFeature = {
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {},
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              25.408811678957278,
+              36.4563656898204
+            ],
+            [
+              25.415319985728473,
+              36.44450788677871
+            ],
+            [
+              25.42112257248752,
+              36.437568970003
+            ],
+            [
+              25.42959121262379,
+              36.441669314004116
+            ],
+            [
+              25.429434385953897,
+              36.45169847303056
+            ],
+            [
+              25.42449434587556,
+              36.45914065855146
+            ],
+            [
+              25.417045079089974,
+              36.46418580184245
+            ],
+            [
+              25.408733265622317,
+              36.46134794913304
+            ],
+            [
+              25.408811678957278,
+              36.4563656898204
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {},
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              25.418865549077196,
+              36.38146176992585
+            ],
+            [
+              25.415306287630244,
+              36.3718891557516
+            ],
+            [
+              25.430982183790945,
+              36.36823052072059
+            ],
+            [
+              25.4421143419344,
+              36.375120806911326
+            ],
+            [
+              25.441281323298824,
+              36.38036433255324
+            ],
+            [
+              25.424166576763923,
+              36.38438819387359
+            ],
+            [
+              25.418865549077196,
+              36.38146176992585
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {},
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              25.343134455434353,
+              36.44953261798611
+            ],
+            [
+              25.339958173697653,
+              36.44751336569658
+            ],
+            [
+              25.34036801650265,
+              36.44401045644588
+            ],
+            [
+              25.34400537139439,
+              36.440466175544415
+            ],
+            [
+              25.349999322413623,
+              36.44227954878993
+            ],
+            [
+              25.348769793999423,
+              36.447595785185925
+            ],
+            [
+              25.343134455434353,
+              36.44953261798611
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      }
+    }
+  ]
+};
+
+
+const map = L.map('map').setView(fallback_point, 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
+
+// Draw Danger Zones
+function drawDangerZones() {
+  L.geoJSON(avoidanceFeature, {
+    style: {
+      color: 'red',
+      weight: 2,
+      fillColor: 'red',
+      fillOpacity: 0.3
+    }
+  }).addTo(map);
+}
+
+// Draw Safe Points
+safePoints.forEach(point => {
+  L.marker([point.coords[1], point.coords[0]])
+    .addTo(map)
+    .bindPopup(point.name);
+});
+
+// Draw Avoidance Zone
+L.geoJSON(avoidanceFeature, { style: { color: 'red', weight: 2, fillOpacity: 0.3 } }).addTo(map);
+
+let userCoords = null;
+let routeLayer = null;
+let currentShelter = null;
+let currentMode = 'foot-walking'; // default
+let selectingLocation = false;
+let userMarker = null;
+
+// Calculate distance between two points
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  function toRad(x) { return x * Math.PI / 180; }
+  var R = 6371;
+  var dLat = toRad(lat2 - lat1);
+  var dLon = toRad(lon2 - lon1);
+  var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+          Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+          Math.sin(dLon/2) * Math.sin(dLon/2);
+  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+// Find nearest safe point
+function findNearestSafePoint(userCoords) {
+  let nearest = null;
+  let minDist = Infinity;
+  safePoints.forEach(point => {
+    let dist = haversineDistance(userCoords[0], userCoords[1], point.coords[1], point.coords[0]);
+    if (dist < minDist) {
+      minDist = dist;
+      nearest = point;
+    }
+  });
+  return nearest;
+}
+
+// Route function
+function routeToShelter(shelter) {
+  if (!userCoords) return;
+  currentShelter = shelter;
+
+  // Always remove previous route first
+  if (routeLayer) {
+    map.removeLayer(routeLayer);
+    routeLayer = null;
+  }
+  // console.log(JSON.stringify({
+  //   coordinates: [
+  //     [userCoords[1], userCoords[0]],
+  //     [shelter.coords[0], shelter.coords[1]]
+  //   ],
+  //   options: {
+  //     avoid_polygons: {
+  //       type: "MultiPolygon",
+  //       coordinates: avoidanceFeature.features.map(f => f.geometry.coordinates)
+  //     },
+  //     avoid_features: ["ferries"]  // ["ferries", "motorway", "tollways", "tunnels"]
+  //   }
+  // }));
+  fetch(`https://api.openrouteservice.org/v2/directions/${currentMode}/geojson`, {
+    method: 'POST',
+    headers: {
+      'Authorization': ors_api_key,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      coordinates: [
+        [userCoords[1], userCoords[0]],
+        [shelter.coords[0], shelter.coords[1]]
+      ],
+      options: {
+        avoid_polygons: {
+          type: "MultiPolygon",
+          coordinates: avoidanceFeature.features.map(f => f.geometry.coordinates)
+        },
+        avoid_features: ["ferries"]
+      }
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    // Create new route
+    routeLayer = L.geoJSON(data, {
+      style: { color: 'blue', weight: 5 }
+    }).addTo(map);
+
+    document.getElementById('status').innerText = "Route to " + shelter.name + " (" + (currentMode === 'foot-walking' ? 'By Foot' : 'By Car') + ")";
+  })
+  .catch(error => {
+    console.error('Error fetching route:', error);
+    document.getElementById('status').innerText = "Could not calculate route.";
+  });
+}
+
+// Load shelters into dropdown
+function populateShelterSelect(nearestShelter) {
+  const select = document.getElementById('shelterSelect');
+  safePoints.forEach((point, index) => {
+    const option = document.createElement('option');
+    option.value = index;
+    option.text = point.name;
+    if (point.name === nearestShelter.name) {
+      option.selected = true;
+    }
+    select.appendChild(option);
+  });
+
+  select.addEventListener('change', () => {
+    const selectedIndex = select.value;
+    routeToShelter(safePoints[selectedIndex]);
+  });
+}
+
+// Handle Travel Mode selection
+function setupModeButtons() {
+  const footBtn = document.getElementById('footBtn');
+  const carBtn = document.getElementById('carBtn');
+
+  footBtn.addEventListener('click', () => {
+    currentMode = 'foot-walking';
+    updateRoute();
+    highlightSelectedButton('foot');
+  });
+
+  carBtn.addEventListener('click', () => {
+    currentMode = 'driving-car';
+    updateRoute();
+    highlightSelectedButton('car');
+  });
+}
+
+// Highlight selected button
+function highlightSelectedButton(selected) {
+  const footBtn = document.getElementById('footBtn');
+  const carBtn = document.getElementById('carBtn');
+
+  // Reset styles
+  footBtn.style.backgroundColor = '';
+  footBtn.style.color = '';
+  carBtn.style.backgroundColor = '';
+  carBtn.style.color = '';
+  footBtn.classList.remove('animate-pulse');
+  carBtn.classList.remove('animate-pulse');
+
+  // Apply active style and animation
+  if (selected === 'foot') {
+    footBtn.style.backgroundColor = '#007bff';
+    footBtn.style.color = 'white';
+    footBtn.classList.add('animate-pulse');
+  } else if (selected === 'car') {
+    carBtn.style.backgroundColor = '#007bff';
+    carBtn.style.color = 'white';
+    carBtn.classList.add('animate-pulse');
+  }
+}
+
+
+// Call this instead of setupModeSelector()
+setupModeButtons();
+
+
+// Start the app
+function startRouting() {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(position => {
+      userCoords = [position.coords.latitude, position.coords.longitude];
+      L.marker(userCoords).addTo(map).bindPopup('You are here').openPopup();
+      map.setView(userCoords, 14);
+
+      const nearestShelter = findNearestSafePoint(userCoords);
+      populateShelterSelect(nearestShelter);
+      setupModeButtons();
+      routeToShelter(nearestShelter);
+
+    }, error => {
+      console.warn('Geolocation failed, using fixed location.', error);
+      fallback();
+    });
+  } else {
+    console.warn('Geolocation not supported, using fixed location.');
+    fallback();
+  }
+}
+
+function fallback() {
+  userCoords = fallback_point;
+  userMarker = L.marker(userCoords).addTo(map).bindPopup('You are here (fixed)').openPopup();
+  map.setView(userCoords, 14);
+
+  const nearestShelter = findNearestSafePoint(userCoords);
+  populateShelterSelect(nearestShelter);
+  setupModeButtons();
+  routeToShelter(nearestShelter);
+
+  document.getElementById('selectLocationBtn').style.display = 'block';
+}
+
+document.getElementById('selectLocationBtn').addEventListener('click', () => {
+  selectingLocation = true;
+  document.getElementById('status').innerText = "Click on the map to set your location...";
+});
+
+map.on('click', function(e) {
+  if (!selectingLocation) return;
+
+  const latlng = e.latlng;
+  userCoords = [latlng.lat, latlng.lng];
+
+  // Remove previous user marker
+  if (userMarker) {
+    map.removeLayer(userMarker);
+  }
+
+  // Add new user marker
+  userMarker = L.marker(userCoords).addTo(map).bindPopup('Selected Location').openPopup();
+
+  // Remove previous route
+  if (routeLayer) {
+    map.removeLayer(routeLayer);
+    routeLayer = null;
+  }
+
+  // Clear and reload shelter select options
+  const shelterSelect = document.getElementById('shelterSelect');
+  shelterSelect.innerHTML = ''; // Clear all options
+
+  const nearestShelter = findNearestSafePoint(userCoords);
+  populateShelterSelect(nearestShelter);
+  routeToShelter(nearestShelter);
+
+  document.getElementById('status').innerText = "New location selected!";
+  selectingLocation = false;
+});
+
+document.getElementById('selectLocationBtn').disabled = true;
+selectingLocation = true;
+
+document.getElementById('selectLocationBtn').disabled = false;
+selectingLocation = false;
+
+function updateRoute() {
+  if (currentShelter) {
+    if (routeLayer) {
+      map.removeLayer(routeLayer);
+      routeLayer = null;
+    }
+    routeToShelter(currentShelter);
+  }
+}
+
+
+startRouting();
+</script>
+
+</body>
+</html>
