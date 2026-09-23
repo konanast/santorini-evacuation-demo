@@ -1,6 +1,6 @@
 # Santorini Evacuation Route Demo
 
-This project is a simple web application that shows evacuation routes in Santorini.
+This project is a responsive evacuation route planning demo for Santorini.
 
 It uses:
 - [Leaflet.js](https://leafletjs.com/) for interactive maps
@@ -10,11 +10,13 @@ It uses:
 
 ## Features
 
-- Find the nearest safe shelter automatically.
-- Calculate route by foot or by car.
-- Avoid predefined danger zones.
-- Select custom starting location on the map.
-- Simple, mobile-friendly user interface.
+- Find and compare named shelters with capacity and facility details.
+- Calculate routes by foot or by car, including distance and estimated travel time.
+- Avoid predefined danger zones and ferry segments.
+- Use device geolocation or select a precise starting point on the map.
+- Share the selected destination and quickly refit or zoom the map.
+- Continue to show an estimated direct route if the routing API is unavailable.
+- Use an accessible, responsive interface designed for desktop and mobile.
 
 ## How It Works
 
