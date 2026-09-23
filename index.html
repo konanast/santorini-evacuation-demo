@@ -2,562 +2,196 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Santorini Evacuation Route Demo</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#102c3c">
+  <title>Santorini SafeRoute — Evacuation Guidance</title>
+  <link rel="preconnect" href="https://unpkg.com">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #f0f2f5;
-    }
-
-    #map {
-      width: 100%;
-      height: 100%;
-    }
-
-    #info {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      background: white;
-      padding: 16px;
-      border-radius: 12px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-      z-index: 999;
-      width: 240px;
-    }
-
-    #status {
-      margin-bottom: 12px;
-      font-size: 16px;
-      font-weight: 600;
-      color: #333;
-    }
-
-    select {
-      width: 100%;
-      padding: 8px 12px;
-      margin-top: 10px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      background: #fafafa;
-      font-size: 14px;
-      transition: border 0.3s, background 0.3s;
-    }
-
-    select:hover {
-      border-color: #888;
-      background: #f5f5f5;
-    }
-
-    select:focus {
-      outline: none;
-      border-color: #007bff;
-      background: #fff;
-    }
-    #modeButtons button {
-      padding: 8px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      background: #f8f9fa;
-      cursor: pointer;
-      font-size: 14px;
-      transition: background 0.3s, color 0.3s;
-    }
-
-    #modeButtons button:hover {
-      background: #e2e6ea;
-    }
-    /* Light Pulse Animation */
-    @keyframes pulse {
-      0% {
-        box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.5);
-      }
-      70% {
-        box-shadow: 0 0 0 8px rgba(0, 123, 255, 0);
-      }
-      100% {
-        box-shadow: 0 0 0 0 rgba(0, 123, 255, 0);
-      }
-    }
-
-    #modeButtons button.animate-pulse {
-      animation: pulse 0.6s;
-    }
-    .danger-label {
-      background: rgba(255, 0, 0, 0.7);
-      color: white;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: bold;
-      border: 1px solid white;
+    :root { --ink:#102c3c; --muted:#60737d; --paper:#f7f9f7; --white:#fff; --sea:#087f7b; --sea-dark:#056864; --lime:#d9f77e; --danger:#e9503f; --line:#dfe7e5; --shadow:0 18px 50px rgba(15,44,59,.16); }
+    * { box-sizing:border-box; }
+    html, body { height:100%; margin:0; }
+    body { overflow:hidden; color:var(--ink); background:#dce9e6; font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    button, select { font:inherit; }
+    button { cursor:pointer; }
+    button:focus-visible, select:focus-visible { outline:3px solid rgba(8,127,123,.3); outline-offset:2px; }
+    #map { position:fixed; inset:0; z-index:0; background:#dce9e6; }
+    .appbar { position:fixed; z-index:700; top:18px; left:18px; right:18px; height:62px; display:flex; align-items:center; justify-content:space-between; padding:0 18px; border:1px solid rgba(255,255,255,.72); border-radius:17px; background:rgba(255,255,255,.92); box-shadow:0 8px 30px rgba(15,44,59,.12); backdrop-filter:blur(14px); }
+    .brand { display:flex; align-items:center; gap:11px; font-size:18px; font-weight:800; letter-spacing:-.03em; }
+    .brand-mark { display:grid; width:36px; height:36px; place-items:center; border-radius:11px; color:white; background:var(--ink); }
+    .brand-mark svg { width:21px; }
+    .brand span span { color:var(--sea); }
+    .live { display:flex; align-items:center; gap:8px; padding:7px 11px; border-radius:999px; color:#376054; background:#e8f5ed; font-size:12px; font-weight:750; letter-spacing:.02em; }
+    .live-dot { width:7px; height:7px; border-radius:50%; background:#38a169; box-shadow:0 0 0 4px rgba(56,161,105,.13); }
+    .panel { position:fixed; z-index:650; top:94px; bottom:18px; left:18px; width:min(390px,calc(100vw - 36px)); display:flex; flex-direction:column; overflow:hidden; border:1px solid rgba(255,255,255,.8); border-radius:22px; background:rgba(247,249,247,.96); box-shadow:var(--shadow); backdrop-filter:blur(16px); }
+    .panel-scroll { overflow:auto; padding:22px; scrollbar-width:thin; }
+    .eyebrow { margin:0 0 5px; color:var(--sea); font-size:11px; font-weight:850; letter-spacing:.12em; text-transform:uppercase; }
+    h1 { margin:0; font-size:27px; line-height:1.12; letter-spacing:-.045em; }
+    .intro { margin:9px 0 19px; color:var(--muted); font-size:13px; line-height:1.5; }
+    .status { display:flex; align-items:flex-start; gap:11px; margin-bottom:18px; padding:13px; border:1px solid #d7e7e2; border-radius:14px; background:#edf7f3; }
+    .status-icon { display:grid; flex:0 0 28px; height:28px; place-items:center; border-radius:50%; color:white; background:var(--sea); font-weight:900; }
+    .status strong { display:block; margin-bottom:2px; font-size:13px; }
+    .status span { color:#57716a; font-size:12px; line-height:1.35; }
+    .field-label { display:flex; justify-content:space-between; margin:0 0 7px; font-size:12px; font-weight:780; }
+    .field-label span { color:var(--sea); font-weight:700; }
+    .select-wrap { position:relative; }
+    select { width:100%; appearance:none; padding:13px 42px 13px 13px; color:var(--ink); border:1px solid #ccd9d6; border-radius:12px; background:white; font-size:13px; font-weight:650; }
+    .select-wrap::after { content:"⌄"; position:absolute; top:10px; right:14px; pointer-events:none; color:var(--muted); font-weight:800; }
+    .shelter-meta { display:flex; gap:12px; margin:9px 0 19px; color:var(--muted); font-size:11px; }
+    .shelter-meta span { display:flex; align-items:center; gap:4px; }
+    .mode-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:18px; }
+    .mode { display:flex; align-items:center; justify-content:center; gap:7px; padding:11px; border:1px solid #cedbd8; border-radius:11px; color:#526771; background:white; font-size:13px; font-weight:750; }
+    .mode.active { color:white; border-color:var(--ink); background:var(--ink); box-shadow:0 5px 12px rgba(16,44,60,.18); }
+    .metrics { display:grid; grid-template-columns:repeat(3,1fr); margin-bottom:18px; overflow:hidden; border:1px solid var(--line); border-radius:14px; background:white; }
+    .metric { padding:12px 8px; text-align:center; }
+    .metric + .metric { border-left:1px solid var(--line); }
+    .metric strong { display:block; font-size:17px; letter-spacing:-.03em; }
+    .metric span { color:var(--muted); font-size:10px; font-weight:650; text-transform:uppercase; letter-spacing:.06em; }
+    .primary { width:100%; padding:13px 15px; border:0; border-radius:12px; color:white; background:var(--sea); box-shadow:0 7px 16px rgba(8,127,123,.22); font-weight:800; }
+    .primary:hover { background:var(--sea-dark); }
+    .secondary-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+    .secondary { padding:10px; border:1px solid #cedbd8; border-radius:11px; color:var(--ink); background:white; font-size:12px; font-weight:750; }
+    .secondary:hover { background:#f0f5f3; }
+    .divider { height:1px; margin:20px 0; background:var(--line); }
+    .safety-title { display:flex; align-items:center; justify-content:space-between; margin:0 0 10px; font-size:13px; }
+    .safety-title span { color:var(--danger); font-size:10px; text-transform:uppercase; letter-spacing:.08em; }
+    .tip { display:flex; gap:9px; margin:8px 0; color:#526771; font-size:12px; line-height:1.35; }
+    .tip b { color:var(--sea); }
+    .panel-footer { margin-top:auto; display:flex; align-items:center; justify-content:space-between; padding:13px 22px; border-top:1px solid var(--line); background:rgba(255,255,255,.66); color:var(--muted); font-size:10px; }
+    .emergency { color:var(--danger); font-weight:850; text-decoration:none; }
+    .map-tools { position:fixed; z-index:600; right:18px; bottom:22px; display:flex; flex-direction:column; gap:8px; }
+    .tool { display:grid; width:44px; height:44px; place-items:center; border:1px solid rgba(16,44,60,.12); border-radius:12px; color:var(--ink); background:white; box-shadow:0 5px 16px rgba(15,44,59,.15); font-size:18px; }
+    .legend { position:fixed; z-index:500; right:18px; top:94px; padding:12px 14px; border-radius:13px; background:rgba(255,255,255,.93); box-shadow:0 5px 20px rgba(15,44,59,.12); color:var(--muted); font-size:11px; }
+    .legend div { display:flex; align-items:center; gap:7px; margin:5px 0; }
+    .swatch { width:20px; height:4px; border-radius:3px; background:var(--sea); }
+    .swatch.danger { height:9px; background:rgba(233,80,63,.45); border:1px solid var(--danger); }
+    .leaflet-control-zoom { display:none; }
+    .leaflet-tooltip.danger-label { border:0; border-radius:999px; color:white; background:var(--danger); box-shadow:none; font-size:10px; font-weight:800; }
+    .leaflet-tooltip.danger-label::before { display:none; }
+    .shelter-pin { display:grid; width:34px!important; height:34px!important; place-items:center; margin:-17px!important; border:3px solid white; border-radius:12px 12px 12px 2px; color:white; background:var(--sea); box-shadow:0 4px 12px rgba(15,44,59,.25); transform:rotate(-45deg); font-size:16px; }
+    .shelter-pin span { transform:rotate(45deg); }
+    .user-pin { width:18px!important; height:18px!important; margin:-9px!important; border:4px solid white; border-radius:50%; background:#2f7ae5; box-shadow:0 0 0 5px rgba(47,122,229,.2),0 3px 10px rgba(0,0,0,.25); }
+    .toast { position:fixed; z-index:900; right:18px; bottom:82px; max-width:300px; padding:12px 15px; border-radius:12px; color:white; background:var(--ink); box-shadow:var(--shadow); font-size:12px; transform:translateY(15px); opacity:0; pointer-events:none; transition:.2s ease; }
+    .toast.show { transform:none; opacity:1; }
+    .is-selecting #map { cursor:crosshair; }
+    @media (max-width:680px) {
+      .appbar { top:10px; left:10px; right:10px; height:54px; }
+      .brand { font-size:16px; } .brand-mark { width:32px; height:32px; }
+      .panel { top:auto; left:8px; right:8px; bottom:8px; width:auto; max-height:61vh; border-radius:20px; }
+      .panel-scroll { padding:18px; } h1 { font-size:23px; } .intro { display:none; }
+      .legend { display:none; } .map-tools { right:14px; bottom:calc(61vh + 18px); }
+      .tool { width:40px; height:40px; } .live { font-size:10px; }
     }
   </style>
 </head>
 <body>
+  <header class="appbar">
+    <div class="brand"><div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-4.5 7-11V5l-7-3-7 3v5c0 6.5 7 11 7 11Z"/><path d="m9 12 2 2 4-5"/></svg></div><span>Santorini <span>SafeRoute</span></span></div>
+    <div class="live"><i class="live-dot"></i> EVACUATION MAP ACTIVE</div>
+  </header>
 
-<div id="info">
-  <div id="status">Finding route to nearest safe point...</div>
-  <select id="shelterSelect"></select>
-  <div id="modeButtons" style="margin-top: 10px; display: flex; gap: 8px;">
-    <button id="carBtn" style="flex:1;">🚗 Car</button>
-    <button id="footBtn" style="flex:1;">🚶‍♂️ Foot</button>
-  </div>
-  <button id="selectLocationBtn" style="margin-top: 10px; width: 100%;">Select your location on Map</button>
-</div>
-<div id="map"></div>
+  <main class="panel" aria-label="Evacuation route planner">
+    <div class="panel-scroll">
+      <p class="eyebrow">Emergency guidance</p>
+      <h1>Your safest route,<br>clearly mapped.</h1>
+      <p class="intro">Choose a refuge point and get a route that avoids the marked hazard areas.</p>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+      <div class="status" role="status" aria-live="polite">
+        <div class="status-icon" id="statusIcon">✓</div>
+        <div><strong id="statusTitle">Locating you…</strong><span id="statusText">Allow location access or choose a point on the map.</span></div>
+      </div>
 
-<script>
-// Insert your OpenRouteService API key here
-const ors_api_key = '5b3ce3597851110001cf62486f7eb4c000634e94b29edb797b397e0e';
-const fallback_point = [36.362831, 25.421362]
+      <label class="field-label" for="shelterSelect">Safe destination <span id="nearestLabel">Nearest first</span></label>
+      <div class="select-wrap"><select id="shelterSelect" aria-label="Choose a safe destination"></select></div>
+      <div class="shelter-meta"><span>● <b id="capacity">—</b>&nbsp; spaces</span><span>✚ First aid</span><span>◉ Water</span></div>
 
-// Example Safe Points
-const safePoints = [
-  { name: "Shelter 1", coords: [25.431454, 36.386973] },
-  { name: "Shelter 2", coords: [25.472624, 36.402719] },
-  { name: "Shelter 3", coords: [25.343610, 36.458202] }
-];
+      <div class="field-label">Travel mode <span>Hazards avoided</span></div>
+      <div class="mode-grid" role="group" aria-label="Travel mode">
+        <button class="mode active" data-mode="driving-car" aria-pressed="true">🚙 By car</button>
+        <button class="mode" data-mode="foot-walking" aria-pressed="false">🚶 On foot</button>
+      </div>
 
-// Example Avoidance Polygon
-const avoidanceFeature = {
-  "type": "FeatureCollection",
-  "features": [
-    {
-      "type": "Feature",
-      "properties": {},
-      "geometry": {
-        "coordinates": [
-          [
-            [
-              25.408811678957278,
-              36.4563656898204
-            ],
-            [
-              25.415319985728473,
-              36.44450788677871
-            ],
-            [
-              25.42112257248752,
-              36.437568970003
-            ],
-            [
-              25.42959121262379,
-              36.441669314004116
-            ],
-            [
-              25.429434385953897,
-              36.45169847303056
-            ],
-            [
-              25.42449434587556,
-              36.45914065855146
-            ],
-            [
-              25.417045079089974,
-              36.46418580184245
-            ],
-            [
-              25.408733265622317,
-              36.46134794913304
-            ],
-            [
-              25.408811678957278,
-              36.4563656898204
-            ]
-          ]
-        ],
-        "type": "Polygon"
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {},
-      "geometry": {
-        "coordinates": [
-          [
-            [
-              25.418865549077196,
-              36.38146176992585
-            ],
-            [
-              25.415306287630244,
-              36.3718891557516
-            ],
-            [
-              25.430982183790945,
-              36.36823052072059
-            ],
-            [
-              25.4421143419344,
-              36.375120806911326
-            ],
-            [
-              25.441281323298824,
-              36.38036433255324
-            ],
-            [
-              25.424166576763923,
-              36.38438819387359
-            ],
-            [
-              25.418865549077196,
-              36.38146176992585
-            ]
-          ]
-        ],
-        "type": "Polygon"
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {},
-      "geometry": {
-        "coordinates": [
-          [
-            [
-              25.343134455434353,
-              36.44953261798611
-            ],
-            [
-              25.339958173697653,
-              36.44751336569658
-            ],
-            [
-              25.34036801650265,
-              36.44401045644588
-            ],
-            [
-              25.34400537139439,
-              36.440466175544415
-            ],
-            [
-              25.349999322413623,
-              36.44227954878993
-            ],
-            [
-              25.348769793999423,
-              36.447595785185925
-            ],
-            [
-              25.343134455434353,
-              36.44953261798611
-            ]
-          ]
-        ],
-        "type": "Polygon"
-      }
-    }
-  ]
-};
+      <div class="metrics" aria-label="Route summary">
+        <div class="metric"><strong id="eta">—</strong><span>Estimated</span></div>
+        <div class="metric"><strong id="distance">—</strong><span>Distance</span></div>
+        <div class="metric"><strong id="hazards">3</strong><span>Zones avoided</span></div>
+      </div>
 
+      <button class="primary" id="locationBtn">⌖ &nbsp; Choose location on map</button>
+      <div class="secondary-row">
+        <button class="secondary" id="locateBtn">◎ Use my location</button>
+        <button class="secondary" id="shareBtn">↗ Share route</button>
+      </div>
 
-const map = L.map('map').setView(fallback_point, 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
+      <div class="divider"></div>
+      <div class="safety-title"><b>Before you leave</b><span>Safety checklist</span></div>
+      <div class="tip"><b>01</b><span>Take water, medication and identification.</span></div>
+      <div class="tip"><b>02</b><span>Follow official instructions and never enter red zones.</span></div>
+      <div class="tip"><b>03</b><span>Keep your phone charged and help vulnerable neighbours.</span></div>
+    </div>
+    <footer class="panel-footer"><span>Demo guidance — verify official alerts</span><a class="emergency" href="tel:112">Emergency 112</a></footer>
+  </main>
 
-const shelterIcon = L.icon({
-  iconUrl: 'https://img.icons8.com/?size=100&id=ptfpVsU72H51&format=png&color=000000',
-  iconSize: [32, 32],
-  iconAnchor: [16, 32],
-  popupAnchor: [0, -32]
-});
+  <div id="map" aria-label="Interactive evacuation map"></div>
+  <div class="legend" aria-label="Map legend"><b>Map key</b><div><i class="swatch"></i> Recommended route</div><div><i class="swatch danger"></i> Restricted zone</div></div>
+  <div class="map-tools"><button class="tool" id="zoomIn" aria-label="Zoom in">+</button><button class="tool" id="zoomOut" aria-label="Zoom out">−</button><button class="tool" id="fitRoute" aria-label="Fit route">⌗</button></div>
+  <div class="toast" id="toast" role="status"></div>
 
-const userLocationIcon = L.icon({
-  iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
-  iconSize: [30, 30],
-  iconAnchor: [15, 30],
-  popupAnchor: [0, -30]
-});
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const ORS_API_KEY = '5b3ce3597851110001cf62486f7eb4c000634e94b29edb797b397e0e';
+    const FALLBACK_POINT = [36.362831, 25.421362];
+    const safePoints = [
+      { name:'Fira Civil Shelter', area:'Fira', coords:[25.431454,36.386973], capacity:180 },
+      { name:'Monolithos Assembly Point', area:'Monolithos', coords:[25.472624,36.402719], capacity:240 },
+      { name:'Oia Community Refuge', area:'Oia', coords:[25.343610,36.458202], capacity:120 }
+    ];
+    const dangerZones = { type:'FeatureCollection', features:[
+      {type:'Feature',properties:{name:'North ridge exclusion'},geometry:{type:'Polygon',coordinates:[[[25.40881,36.45637],[25.41532,36.44451],[25.42112,36.43757],[25.42959,36.44167],[25.42943,36.45170],[25.42449,36.45914],[25.41705,36.46419],[25.40873,36.46135],[25.40881,36.45637]]]}},
+      {type:'Feature',properties:{name:'Caldera road closure'},geometry:{type:'Polygon',coordinates:[[[25.41887,36.38146],[25.41531,36.37189],[25.43098,36.36823],[25.44211,36.37512],[25.44128,36.38036],[25.42417,36.38439],[25.41887,36.38146]]]}},
+      {type:'Feature',properties:{name:'Oia restricted area'},geometry:{type:'Polygon',coordinates:[[[25.34313,36.44953],[25.33996,36.44751],[25.34037,36.44401],[25.34401,36.44047],[25.35000,36.44228],[25.34877,36.44760],[25.34313,36.44953]]]}}
+    ]};
 
-// Draw Danger Zones
-function drawDangerZones() {
-  L.geoJSON(avoidanceFeature, {
-    style: {
-      color: 'red',
-      weight: 2,
-      fillColor: 'red',
-      fillOpacity: 0.3
-    },
-    onEachFeature: function (feature, layer) {
-      layer.bindTooltip("Danger Zone", {
-        permanent: true,
-        direction: 'center',
-        className: 'danger-label'
-      });
-    }
-  }).addTo(map);
-}
+    const map = L.map('map',{zoomControl:false}).setView([36.40,25.42],12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+    const shelterIcon = L.divIcon({className:'shelter-pin',html:'<span>⌂</span>',iconSize:[34,34]});
+    const userIcon = L.divIcon({className:'user-pin',iconSize:[18,18]});
+    const zoneLayer = L.geoJSON(dangerZones,{style:{color:'#e9503f',weight:2,fillColor:'#e9503f',fillOpacity:.22,dashArray:'5 5'},onEachFeature:(feature,layer)=>layer.bindTooltip(feature.properties.name,{permanent:true,direction:'center',className:'danger-label'})}).addTo(map);
+    safePoints.forEach((point,index)=>L.marker([point.coords[1],point.coords[0]],{icon:shelterIcon}).addTo(map).bindPopup(`<b>${point.name}</b><br>${point.capacity} available spaces`).on('click',()=>selectShelter(index)));
 
-// Draw Safe Points
-safePoints.forEach(point => {
-  L.marker([point.coords[1], point.coords[0]], { icon: shelterIcon })
-    .addTo(map)
-    .bindPopup(point.name);
-});
+    let userCoords = FALLBACK_POINT.slice();
+    let currentMode = 'driving-car';
+    let currentShelter = safePoints[0];
+    let routeLayer;
+    let userMarker;
+    let selectingLocation = false;
+    let routeRequest = 0;
 
-// Draw Avoidance Zone
-drawDangerZones();
+    const $ = id => document.getElementById(id);
+    const haversine = (a,b) => { const rad=x=>x*Math.PI/180, dLat=rad(b[0]-a[0]), dLon=rad(b[1]-a[1]); const q=Math.sin(dLat/2)**2+Math.cos(rad(a[0]))*Math.cos(rad(b[0]))*Math.sin(dLon/2)**2; return 6371*2*Math.atan2(Math.sqrt(q),Math.sqrt(1-q)); };
+    const formatDistance = metres => metres>=1000 ? `${(metres/1000).toFixed(1)} km` : `${Math.round(metres/10)*10} m`;
+    const formatDuration = seconds => seconds>=3600 ? `${Math.floor(seconds/3600)}h ${Math.round((seconds%3600)/60)}m` : `${Math.max(1,Math.round(seconds/60))} min`;
+    const nearestIndex = coords => safePoints.reduce((best,p,i)=>haversine(coords,[p.coords[1],p.coords[0]])<haversine(coords,[safePoints[best].coords[1],safePoints[best].coords[0]])?i:best,0);
+    function setStatus(title,text,kind='ok') { $('statusTitle').textContent=title; $('statusText').textContent=text; $('statusIcon').textContent=kind==='loading'?'…':kind==='error'?'!':'✓'; $('statusIcon').style.background=kind==='error'?'var(--danger)':'var(--sea)'; }
+    function toast(message) { $('toast').textContent=message; $('toast').classList.add('show'); clearTimeout(toast.timer); toast.timer=setTimeout(()=>$('toast').classList.remove('show'),2400); }
+    function setUserLocation(coords,label='Your location') { userCoords=coords; if(userMarker) userMarker.remove(); userMarker=L.marker(coords,{icon:userIcon,zIndexOffset:1000}).addTo(map).bindPopup(label); map.panTo(coords); const i=nearestIndex(coords); $('shelterSelect').value=i; selectShelter(i,false); }
+    function selectShelter(index,fit=true) { currentShelter=safePoints[index]; $('shelterSelect').value=index; $('capacity').textContent=currentShelter.capacity; routeToShelter(fit); }
+    function populateShelters() { safePoints.forEach((p,i)=>$('shelterSelect').add(new Option(`${p.name} · ${p.area}`,i))); }
+    function fallbackRoute() { const destination=[currentShelter.coords[1],currentShelter.coords[0]]; const km=haversine(userCoords,destination); const speed=currentMode==='foot-walking'?4.5:32; drawRoute({type:'Feature',geometry:{type:'LineString',coordinates:[[userCoords[1],userCoords[0]],currentShelter.coords]},properties:{summary:{distance:km*1000,duration:km/speed*3600}}},true); }
+    function drawRoute(feature,isEstimate=false,fit=true) { if(routeLayer) routeLayer.remove(); routeLayer=L.geoJSON(feature,{style:{color:'#087f7b',weight:6,opacity:.92,lineCap:'round'}}).addTo(map); const summary=feature.properties?.summary||feature.features?.[0]?.properties?.summary; if(summary){$('distance').textContent=formatDistance(summary.distance);$('eta').textContent=formatDuration(summary.duration);} setStatus(`Route ready to ${currentShelter.area}`,isEstimate?'Estimated direct route shown; online routing is unavailable.':'Route avoids all marked restriction zones.'); if(fit) map.fitBounds(routeLayer.getBounds(),{padding:[70,70]}); }
+    async function routeToShelter(fit=true) { const request=++routeRequest; setStatus('Calculating safest route…','Checking the road network and marked hazards.','loading'); try { const response=await fetch(`https://api.openrouteservice.org/v2/directions/${currentMode}/geojson`,{method:'POST',headers:{Authorization:ORS_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({coordinates:[[userCoords[1],userCoords[0]],currentShelter.coords],options:{avoid_polygons:{type:'MultiPolygon',coordinates:dangerZones.features.map(f=>f.geometry.coordinates)},avoid_features:['ferries']}})}); if(!response.ok) throw new Error(`Routing service returned ${response.status}`); const data=await response.json(); if(request!==routeRequest) return; drawRoute(data,false,fit); } catch(error) { console.warn(error); if(request===routeRequest) fallbackRoute(); } }
+    function requestLocation() { if(!navigator.geolocation){ toast('Location services are not available.'); return; } setStatus('Locating you…','Waiting for your device location.','loading'); navigator.geolocation.getCurrentPosition(p=>{setUserLocation([p.coords.latitude,p.coords.longitude]);toast('Location updated.');},()=>{setStatus('Using demo location','Choose your position on the map for an accurate route.','error');toast('Location unavailable — using the demo point.');},{enableHighAccuracy:true,timeout:9000,maximumAge:30000}); }
 
-
-let userCoords = null;
-let routeLayer = null;
-let currentShelter = null;
-let currentMode = 'driving-car'; // default
-let selectingLocation = false;
-let userMarker = null;
-
-// Calculate distance between two points
-function haversineDistance(lat1, lon1, lat2, lon2) {
-  function toRad(x) { return x * Math.PI / 180; }
-  var R = 6371;
-  var dLat = toRad(lat2 - lat1);
-  var dLon = toRad(lon2 - lon1);
-  var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-          Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-          Math.sin(dLon/2) * Math.sin(dLon/2);
-  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
-}
-
-// Find nearest safe point
-function findNearestSafePoint(userCoords) {
-  let nearest = null;
-  let minDist = Infinity;
-  safePoints.forEach(point => {
-    let dist = haversineDistance(userCoords[0], userCoords[1], point.coords[1], point.coords[0]);
-    if (dist < minDist) {
-      minDist = dist;
-      nearest = point;
-    }
-  });
-  return nearest;
-}
-
-// Route function
-function routeToShelter(shelter) {
-  if (!userCoords) return;
-  currentShelter = shelter;
-
-  // Always remove previous route first
-  if (routeLayer) {
-    map.removeLayer(routeLayer);
-    routeLayer = null;
-  }
-  // console.log(JSON.stringify({
-  //   coordinates: [
-  //     [userCoords[1], userCoords[0]],
-  //     [shelter.coords[0], shelter.coords[1]]
-  //   ],
-  //   options: {
-  //     avoid_polygons: {
-  //       type: "MultiPolygon",
-  //       coordinates: avoidanceFeature.features.map(f => f.geometry.coordinates)
-  //     },
-  //     avoid_features: ["ferries"]  // ["ferries", "motorway", "tollways", "tunnels"]
-  //   }
-  // }));
-  fetch(`https://api.openrouteservice.org/v2/directions/${currentMode}/geojson`, {
-    method: 'POST',
-    headers: {
-      'Authorization': ors_api_key,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      coordinates: [
-        [userCoords[1], userCoords[0]],
-        [shelter.coords[0], shelter.coords[1]]
-      ],
-      options: {
-        avoid_polygons: {
-          type: "MultiPolygon",
-          coordinates: avoidanceFeature.features.map(f => f.geometry.coordinates)
-        },
-        avoid_features: ["ferries"]
-      }
-    })
-  })
-  .then(response => response.json())
-  .then(data => {
-    // Create new route
-    routeLayer = L.geoJSON(data, {
-      style: { color: 'blue', weight: 5 }
-    }).addTo(map);
-
-    document.getElementById('status').innerText = "Route to " + shelter.name + " (" + (currentMode === 'foot-walking' ? 'By Foot' : 'By Car') + ")";
-  })
-  .catch(error => {
-    console.error('Error fetching route:', error);
-    document.getElementById('status').innerText = "Could not calculate route.";
-  });
-}
-
-// Load shelters into dropdown
-function populateShelterSelect(nearestShelter) {
-  const select = document.getElementById('shelterSelect');
-  safePoints.forEach((point, index) => {
-    const option = document.createElement('option');
-    option.value = index;
-    option.text = point.name;
-    if (point.name === nearestShelter.name) {
-      option.selected = true;
-    }
-    select.appendChild(option);
-  });
-
-  select.addEventListener('change', () => {
-    const selectedIndex = select.value;
-    routeToShelter(safePoints[selectedIndex]);
-  });
-}
-
-// Handle Travel Mode selection
-function setupModeButtons() {
-  const footBtn = document.getElementById('footBtn');
-  const carBtn = document.getElementById('carBtn');
-
-  footBtn.addEventListener('click', () => {
-    currentMode = 'foot-walking';
-    updateRoute();
-    highlightSelectedButton('foot');
-  });
-
-  carBtn.addEventListener('click', () => {
-    currentMode = 'driving-car';
-    updateRoute();
-    highlightSelectedButton('car');
-  });
-  highlightSelectedButton('car');
-}
-
-// Highlight selected button
-function highlightSelectedButton(selected) {
-  const footBtn = document.getElementById('footBtn');
-  const carBtn = document.getElementById('carBtn');
-
-  // Reset styles
-  footBtn.style.backgroundColor = '';
-  footBtn.style.color = '';
-  carBtn.style.backgroundColor = '';
-  carBtn.style.color = '';
-  footBtn.classList.remove('animate-pulse');
-  carBtn.classList.remove('animate-pulse');
-
-  // Apply active style and animation
-  if (selected === 'foot') {
-    footBtn.style.backgroundColor = '#007bff';
-    footBtn.style.color = 'white';
-    footBtn.classList.add('animate-pulse');
-  } else if (selected === 'car') {
-    carBtn.style.backgroundColor = '#007bff';
-    carBtn.style.color = 'white';
-    carBtn.classList.add('animate-pulse');
-  }
-}
-
-
-// Call this instead of setupModeSelector()
-setupModeButtons();
-
-
-// Start the app
-function startRouting() {
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(position => {
-      userCoords = [position.coords.latitude, position.coords.longitude];
-      userMarker = L.marker(userCoords, { icon: userLocationIcon }).addTo(map).bindPopup('You are here').openPopup();
-      map.setView(userCoords, 14);
-
-      const nearestShelter = findNearestSafePoint(userCoords);
-      populateShelterSelect(nearestShelter);
-      setupModeButtons();
-      routeToShelter(nearestShelter);
-
-    }, error => {
-      console.warn('Geolocation failed, using fixed location.', error);
-      fallback();
-    });
-  } else {
-    console.warn('Geolocation not supported, using fixed location.');
-    fallback();
-  }
-}
-
-function fallback() {
-  userCoords = fallback_point;
-  userMarker = L.marker(userCoords, { icon: userLocationIcon }).addTo(map).bindPopup('You are here (fixed)').openPopup();
-  map.setView(userCoords, 14);
-
-  const nearestShelter = findNearestSafePoint(userCoords);
-  populateShelterSelect(nearestShelter);
-  setupModeButtons();
-  routeToShelter(nearestShelter);
-
-  document.getElementById('selectLocationBtn').style.display = 'block';
-}
-
-document.getElementById('selectLocationBtn').addEventListener('click', () => {
-  selectingLocation = true;
-  document.getElementById('status').innerText = "Click on the map to set your location...";
-});
-
-map.on('click', function(e) {
-  if (!selectingLocation) return;
-
-  const latlng = e.latlng;
-  userCoords = [latlng.lat, latlng.lng];
-
-  // Remove previous user marker
-  if (userMarker) {
-    map.removeLayer(userMarker);
-  }
-
-  // Add new user marker
-  userMarker = L.marker(userCoords, { icon: userLocationIcon }).addTo(map).bindPopup('Selected Location').openPopup();
-
-  // Remove previous route
-  if (routeLayer) {
-    map.removeLayer(routeLayer);
-    routeLayer = null;
-  }
-
-  // Clear and reload shelter select options
-  const shelterSelect = document.getElementById('shelterSelect');
-  shelterSelect.innerHTML = ''; // Clear all options
-
-  const nearestShelter = findNearestSafePoint(userCoords);
-  populateShelterSelect(nearestShelter);
-  routeToShelter(nearestShelter);
-
-  document.getElementById('status').innerText = "New location selected!";
-  selectingLocation = false;
-});
-
-document.getElementById('selectLocationBtn').disabled = true;
-selectingLocation = true;
-
-document.getElementById('selectLocationBtn').disabled = false;
-selectingLocation = false;
-
-function updateRoute() {
-  if (currentShelter) {
-    if (routeLayer) {
-      map.removeLayer(routeLayer);
-      routeLayer = null;
-    }
-    routeToShelter(currentShelter);
-  }
-}
-
-
-startRouting();
-</script>
-
+    populateShelters();
+    document.querySelectorAll('.mode').forEach(button=>button.addEventListener('click',()=>{currentMode=button.dataset.mode;document.querySelectorAll('.mode').forEach(b=>{const active=b===button;b.classList.toggle('active',active);b.setAttribute('aria-pressed',active);});routeToShelter();}));
+    $('shelterSelect').addEventListener('change',e=>selectShelter(Number(e.target.value)));
+    $('locationBtn').addEventListener('click',()=>{selectingLocation=true;document.body.classList.add('is-selecting');setStatus('Choose your starting point','Tap anywhere on the map to place your location.','loading');toast('Tap the map to set your start point.');});
+    map.on('click',e=>{if(!selectingLocation)return;selectingLocation=false;document.body.classList.remove('is-selecting');setUserLocation([e.latlng.lat,e.latlng.lng],'Selected starting point');});
+    $('locateBtn').addEventListener('click',requestLocation);
+    $('shareBtn').addEventListener('click',async()=>{const text=`Evacuation route to ${currentShelter.name}: https://www.openstreetmap.org/?mlat=${currentShelter.coords[1]}&mlon=${currentShelter.coords[0]}#map=14/${currentShelter.coords[1]}/${currentShelter.coords[0]}`;try{if(navigator.share)await navigator.share({title:'Santorini SafeRoute',text});else{await navigator.clipboard.writeText(text);toast('Route details copied.');}}catch(error){if(error.name!=='AbortError')toast('Could not share this route.');}});
+    $('zoomIn').addEventListener('click',()=>map.zoomIn()); $('zoomOut').addEventListener('click',()=>map.zoomOut()); $('fitRoute').addEventListener('click',()=>routeLayer&&map.fitBounds(routeLayer.getBounds(),{padding:[60,60]}));
+    setUserLocation(FALLBACK_POINT,'Demo starting point');
+    setTimeout(()=>map.invalidateSize(),100);
+  </script>
 </body>
 </html>
